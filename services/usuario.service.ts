@@ -6,9 +6,7 @@ export const usuarioService = {
     const { data } = await api.get<Usuario[]>("/usuarios");
     return data;
   },
-  // Preferir endpoint filtrado por cooperativa
   getByCooperativa: async (idCooperativa: number): Promise<Usuario[]> => {
-    // TODO: backend debe exponer GET /usuarios/cooperativa/{idCooperativa}
     const { data } = await api.get<Usuario[]>(`/usuarios/cooperativa/${idCooperativa}`);
     return data;
   },

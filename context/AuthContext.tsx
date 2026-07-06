@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type { AuthResponse } from "@/interfaces";
 import { authService } from "@/services/auth.service";
 
@@ -16,6 +16,23 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+function normalizeRole(role: string | null | undefined): string | null {
+  if (!role) {
+    return null;
+  }
+
+  const normalized = role.trim().toUpperCase();
+  if (normalized === "ADMIN") {
+    return "ADMINISTRADOR";
+  }
+
+  if (normalized === "ADMINISTRADOR" || normalized === "OPERADOR" || normalized === "SOCIO") {
+    return normalized;
+  }
+
+  return null;
+}
 
 function getStoredAuthState() {
   if (typeof window === "undefined") {
@@ -35,43 +52,30 @@ function getStoredAuthState() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthResponse | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [rol, setRol] = useState<string | null>(null);
-  const [idCooperativa, setIdCooperativa] = useState<number | null>(null);
-  const [nombreCooperativa, setNombreCooperativa] = useState<string | null>(null);
-
-  useEffect(() => {
-    const stored = getStoredAuthState();
-    if (!stored) {
-      return;
-    }
-
-    setUser(stored);
-    setToken(stored.token ?? null);
-    setRol(stored.rol ?? null);
-    setIdCooperativa(stored.idCooperativa ?? null);
-    setNombreCooperativa(stored.nombreCooperativa ?? null);
-  }, []);
+  const stored = getStoredAuthState();
+  const [user, setUser] = useState<AuthResponse | null>(stored ? { ...stored, rol: normalizeRole(stored.rol) } : null);
+  const [token, setToken] = useState<string | null>(stored?.token ?? null);
+  const [rol, setRol] = useState<string | null>(normalizeRole(stored?.rol));
+  const [idCooperativa, setIdCooperativa] = useState<number | null>(stored?.idCooperativa ?? null);
+  const [nombreCooperativa, setNombreCooperativa] = useState<string | null>(stored?.nombreCooperativa ?? null);
 
   const login = async (username: string, password: string): Promise<AuthResponse> => {
     const data = await authService.login({ username, password });
-    // limpiar posibles datos previos relacionados a cooperativas o mocks
     if (typeof window !== "undefined") {
       try {
         window.localStorage.removeItem("cooperativa_draft");
         window.localStorage.removeItem("selectedCooperativa");
         window.localStorage.removeItem("register_cooperativa");
-        window.localStorage.removeItem("coopfin_demo_data");
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
 
     const storedAuth = {
       token: data.token ?? null,
+      idUsuario: data.idUsuario ?? null,
       username: data.username ?? username,
-      rol: data.rol ?? null,
+      rol: normalizeRole(data.rol),
       idCooperativa: data.idCooperativa ?? null,
       nombreCooperativa: data.nombreCooperativa ?? null,
     } as AuthResponse;

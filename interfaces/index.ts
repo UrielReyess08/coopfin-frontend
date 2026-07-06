@@ -19,6 +19,7 @@ export interface AuthRequest {
 export interface AuthResponse {
   token?: string;
   type?: string;
+  idUsuario?: number;
   username?: string;
   rol?: string;
   idCooperativa?: number;

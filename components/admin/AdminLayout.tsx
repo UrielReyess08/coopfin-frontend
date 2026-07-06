@@ -15,7 +15,7 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
   const router = useRouter();
-  const { isAuthenticated, rol, logout, user, nombreCooperativa, idCooperativa } = useAuth();
+  const { isAuthenticated, rol, logout, user, nombreCooperativa } = useAuth();
   const [cooperativaProfile, setCooperativaProfile] = useState(getStoredCooperativaProfile());
 
   useEffect(() => {
@@ -24,12 +24,25 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
       return;
     }
 
-    if (rol && rol !== "ADMINISTRADOR" && rol !== "OPERADOR") {
+    if (rol === "SOCIO") {
       router.replace("/socio");
       return;
     }
 
-    setCooperativaProfile(getStoredCooperativaProfile());
+    if (rol !== "ADMINISTRADOR" && rol !== "OPERADOR") {
+      router.replace("/login");
+      return;
+    }
+
+    const handleProfileUpdated = () => {
+      setCooperativaProfile(getStoredCooperativaProfile());
+    };
+
+    window.addEventListener("coopfin-profile-updated", handleProfileUpdated);
+
+    return () => {
+      window.removeEventListener("coopfin-profile-updated", handleProfileUpdated);
+    };
   }, [isAuthenticated, rol, router]);
 
   const handleLogout = () => {
@@ -38,14 +51,13 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
   };
 
   const brandName = useMemo(() => {
-    // usar el nombre de cooperativa proveniente del contexto de autenticación si está disponible
-    const storedName = nombreCooperativa || cooperativaProfile?.nombreCooperativa || user?.username || "COOPFIN";
+    const storedName = cooperativaProfile?.nombreCooperativa || nombreCooperativa || user?.username || "COOPFIN";
     return storedName;
-  }, [nombreCooperativa, cooperativaProfile?.nombreCooperativa, user?.username]);
+  }, [cooperativaProfile?.nombreCooperativa, nombreCooperativa, user?.username]);
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#f8fafc,_#f1f5f9_40%,_#e2e8f0)] p-3 sm:p-4 lg:p-6">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5 lg:flex-row lg:items-start">
+    <main className="min-h-screen bg-[#F5F7FA] p-3 sm:p-4 lg:p-6">
+      <div className="mx-auto w-full max-w-[1600px]">
         <Sidebar
           brandName={brandName}
           logoUrl={cooperativaProfile.logoUrl}
@@ -54,13 +66,12 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
           onLogout={handleLogout}
         />
 
-        <section className="flex-1 min-w-0 space-y-4">
+        <section className="min-w-0 space-y-4 lg:ml-[21rem]">
           <Header
             title={title}
             subtitle={subtitle}
             brandName={brandName}
             colorPrincipal={cooperativaProfile.colorPrincipal}
-            colorSecundario={cooperativaProfile.colorSecundario}
           />
           <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:p-8">{children}</div>
         </section>

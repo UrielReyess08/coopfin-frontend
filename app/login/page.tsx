@@ -23,9 +23,15 @@ export default function LoginPage() {
 
       if (response.rol === "ADMINISTRADOR" || response.rol === "OPERADOR") {
         router.replace("/admin");
-      } else {
-        router.replace("/socio");
+        return;
       }
+
+      if (response.rol === "SOCIO") {
+        router.replace("/socio");
+        return;
+      }
+
+      setError("No se pudo determinar el rol de tu cuenta. Contacta al administrador.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo iniciar sesión");
     } finally {
@@ -61,7 +67,7 @@ export default function LoginPage() {
                 <input
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 outline-none transition focus:border-[#0F1E3A]"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#0F1E3A]"
                   placeholder="Ingrese su usuario"
                   required
                 />
@@ -73,7 +79,7 @@ export default function LoginPage() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-300 px-3 py-2.5 outline-none transition focus:border-[#0F1E3A]"
+                  className="w-full rounded-2xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#0F1E3A]"
                   placeholder="Ingrese su contraseña"
                   required
                 />

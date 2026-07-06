@@ -10,9 +10,7 @@ export const prestamoService = {
     const { data } = await api.get<Prestamo[]>(`/prestamos/estado/${estado}`);
     return data;
   },
-  // Preferir endpoint por cooperativa
   getByCooperativa: async (idCooperativa: number): Promise<Prestamo[]> => {
-    // TODO: backend debe exponer GET /prestamos/cooperativa/{idCooperativa}
     const { data } = await api.get<Prestamo[]>(`/prestamos/cooperativa/${idCooperativa}`);
     return data;
   },

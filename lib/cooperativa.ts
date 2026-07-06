@@ -44,5 +44,6 @@ export function saveCooperativaProfile(profile: Partial<CooperativaProfile>) {
   };
 
   window.localStorage.setItem("coopfin_cooperativa_profile", JSON.stringify(nextProfile));
+  window.dispatchEvent(new CustomEvent("coopfin-profile-updated", { detail: nextProfile }));
   return nextProfile;
 }

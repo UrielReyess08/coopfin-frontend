@@ -1,89 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { aportacionService } from "@/services/aportacion.service";
-import { prestamoService } from "@/services/prestamo.service";
-import { historialFinancieroService } from "@/services/historialFinanciero.service";
-
-export default function SocioPage() {
-  const { idCooperativa } = useAuth();
-  const [aportaciones, setAportaciones] = useState([] as any[]);
-  const [prestamos, setPrestamos] = useState([] as any[]);
-  const [historial, setHistorial] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const fetchData = async () => {
-    if (!idCooperativa) {
-      setError("No hay cooperativa autenticada");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const [a, p, h] = await Promise.all([
-        aportacionService.getByCooperativa(Number(idCooperativa)),
-        prestamoService.getByCooperativa(Number(idCooperativa)),
-        historialFinancieroService.getByCooperativa(Number(idCooperativa)),
-      ]);
-      setAportaciones(a || []);
-      setPrestamos(p || []);
-      setHistorial(h || null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error cargando datos");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void fetchData();
-  }, [idCooperativa]);
-
-  if (error) return <div className="p-6">{error}</div>;
-  if (loading) return <div className="p-6">Cargando...</div>;
-
-  return (
-    <main className="p-6">
-      <h1 className="text-2xl font-semibold">Mi panel de socio</h1>
-
-      <section className="mt-6">
-        <h2 className="text-lg font-medium">Aportaciones</h2>
-        {aportaciones.length === 0 ? <p className="mt-2 text-sm text-slate-500">Sin aportaciones</p> : (
-          <ul className="mt-2">
-            {aportaciones.map((a) => (
-              <li key={a.id} className="py-2 border-b">{a.monto} {a.moneda} — {a.fecha}</li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mt-6">
-        <h2 className="text-lg font-medium">Préstamos</h2>
-        {prestamos.length === 0 ? <p className="mt-2 text-sm text-slate-500">Sin préstamos</p> : (
-          <ul className="mt-2">
-            {prestamos.map((p) => (
-              <li key={p.id} className="py-2 border-b">{p.monto} — {p.estado}</li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mt-6">
-        <h2 className="text-lg font-medium">Historial financiero</h2>
-        {historial ? (
-          <pre className="mt-2 overflow-auto rounded bg-slate-50 p-3 text-sm text-slate-800">{JSON.stringify(historial, null, 2)}</pre>
-        ) : (
-          <p className="mt-2 text-sm text-slate-500">No hay historial.</p>
-        )}
-      </section>
-    </main>
-  );
-}
-
-"use client";
-
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -93,12 +9,16 @@ import { cuotaPrestamoService } from "@/services/cuotaPrestamo.service";
 import { historialFinancieroService } from "@/services/historialFinanciero.service";
 import { prestamoService } from "@/services/prestamo.service";
 import { pagoCuotaService } from "@/services/pagoCuota.service";
+import { socioService } from "@/services/socio.service";
+import { isPositiveNumber } from "@/lib/utils";
 
-const idSocioTemporal = 1;
+const inputClass =
+  "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400";
 
 export default function SocioPage() {
   const router = useRouter();
   const { isAuthenticated, rol, user } = useAuth();
+  const [socioId, setSocioId] = useState<number | null>(null);
   const [historial, setHistorial] = useState<HistorialFinanciero | null>(null);
   const [aportaciones, setAportaciones] = useState<Aportacion[]>([]);
   const [prestamos, setPrestamos] = useState<Prestamo[]>([]);
@@ -115,29 +35,37 @@ export default function SocioPage() {
   const [numeroCuotas, setNumeroCuotas] = useState("");
   const [motivo, setMotivo] = useState("");
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace("/login");
-      return;
+  const resolveSocioId = async (): Promise<number> => {
+    if (user?.idSocio) {
+      return Number(user.idSocio);
     }
 
-    if (rol && rol !== "SOCIO") {
-      router.replace("/admin");
-      return;
+    if (user?.idUsuario) {
+      try {
+        const socio = await socioService.getByUsuario(Number(user.idUsuario));
+        if (socio.idSocio) {
+          return Number(socio.idSocio);
+        }
+      } catch {
+        // TODO backend: crear GET /api/socios/me o GET /api/socios/usuario/{idUsuario}
+      }
     }
 
-    void loadResumenData();
-  }, [isAuthenticated, rol, router]);
+    throw new Error("No se encontró un perfil de socio asociado al usuario autenticado");
+  };
 
   const loadResumenData = async () => {
     setLoading(true);
     setError("");
 
     try {
+      const resolvedSocioId = await resolveSocioId();
+      setSocioId(resolvedSocioId);
+
       const [historialData, aportacionData, prestamoData] = await Promise.all([
-        historialFinancieroService.getBySocioId(idSocioTemporal),
-        aportacionService.getBySocioId(idSocioTemporal),
-        prestamoService.getBySocioId(idSocioTemporal),
+        historialFinancieroService.getBySocioId(resolvedSocioId),
+        aportacionService.getBySocioId(resolvedSocioId),
+        prestamoService.getBySocioId(resolvedSocioId),
       ]);
 
       setHistorial(historialData);
@@ -149,6 +77,31 @@ export default function SocioPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+
+    if (rol === "ADMINISTRADOR" || rol === "OPERADOR") {
+      router.replace("/admin");
+      return;
+    }
+
+    if (rol !== "SOCIO") {
+      router.replace("/login");
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadResumenData();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isAuthenticated, rol, router]);
 
   const totalAportado = useMemo(() => {
     return (historial?.totalAportado ?? 0) || aportaciones.reduce((sum, item) => sum + Number(item.monto ?? 0), 0);
@@ -162,18 +115,25 @@ export default function SocioPage() {
     return (historial?.saldoPendiente ?? 0) || Math.max(totalPrestado - totalAportado, 0);
   }, [historial?.saldoPendiente, totalAportado, totalPrestado]);
 
-  const socioNombre = useMemo(() => {
-    return historial?.socio?.nombres && historial?.socio?.apellidos
-      ? `${historial.socio.nombres} ${historial.socio.apellidos}`
-      : user?.username || "Socio";
-  }, [historial?.socio?.apellidos, historial?.socio?.nombres, user?.username]);
+  const socioNombre = historial?.socio?.nombres && historial?.socio?.apellidos
+    ? `${historial.socio.nombres} ${historial.socio.apellidos}`
+    : user?.username || "Socio";
 
-  const socioCodigo = useMemo(() => {
-    return historial?.socio?.codigoSocio || String(idSocioTemporal);
-  }, [historial?.socio?.codigoSocio]);
+  const socioCodigo = historial?.socio?.codigoSocio || "-";
 
   const handleRegistrarAportacion = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (!socioId) {
+      setError("No se pudo identificar al socio autenticado");
+      return;
+    }
+
+    if (!isPositiveNumber(monto)) {
+      setError("El monto de aportación debe ser mayor a 0");
+      return;
+    }
+
     setSubmittingAportacion(true);
     setError("");
 
@@ -183,7 +143,7 @@ export default function SocioPage() {
         tipo: "ORDINARIA",
         periodo: new Date().toISOString().slice(0, 7),
         observacion,
-        idSocio: idSocioTemporal,
+        idSocio: socioId,
       });
 
       setMonto("");
@@ -198,6 +158,22 @@ export default function SocioPage() {
 
   const handleSolicitarPrestamo = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (!socioId) {
+      setError("No se pudo identificar al socio autenticado");
+      return;
+    }
+
+    if (!isPositiveNumber(montoSolicitado)) {
+      setError("El monto solicitado debe ser mayor a 0");
+      return;
+    }
+
+    if (!isPositiveNumber(numeroCuotas)) {
+      setError("El número de cuotas debe ser mayor a 0");
+      return;
+    }
+
     setSubmittingPrestamo(true);
     setError("");
 
@@ -206,7 +182,7 @@ export default function SocioPage() {
         montoSolicitado: Number(montoSolicitado),
         numeroCuotas: Number(numeroCuotas),
         motivo,
-        idSocio: idSocioTemporal,
+        idSocio: socioId,
       });
 
       setMontoSolicitado("");
@@ -278,39 +254,41 @@ export default function SocioPage() {
         <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-sm text-slate-500">Total aportado</p>
-            <p className="mt-2 text-2xl font-semibold">S/ {totalAportado.toFixed(2)}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">S/ {totalAportado.toFixed(2)}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-sm text-slate-500">Total prestado</p>
-            <p className="mt-2 text-2xl font-semibold">S/ {totalPrestado.toFixed(2)}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">S/ {totalPrestado.toFixed(2)}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-sm text-slate-500">Saldo pendiente</p>
-            <p className="mt-2 text-2xl font-semibold">S/ {saldoPendiente.toFixed(2)}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">S/ {saldoPendiente.toFixed(2)}</p>
           </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-semibold">Registrar aportación</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Registrar aportación</h2>
               <form onSubmit={handleRegistrarAportacion} className="mt-4 space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Monto</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Monto</label>
                   <input
                     type="number"
                     value={monto}
                     onChange={(event) => setMonto(event.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2"
+                    className={inputClass}
+                    placeholder="Ingrese el monto"
                     required
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Observación</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Observación</label>
                   <input
                     value={observacion}
                     onChange={(event) => setObservacion(event.target.value)}
-                    className="w-full rounded-md border border-slate-300 px-3 py-2"
+                    className={inputClass}
+                    placeholder="Detalle opcional"
                   />
                 </div>
                 <button type="submit" disabled={submittingAportacion} className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-60">
@@ -320,19 +298,39 @@ export default function SocioPage() {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-semibold">Solicitar préstamo</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Solicitar préstamo</h2>
               <form onSubmit={handleSolicitarPrestamo} className="mt-4 space-y-3">
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Monto solicitado</label>
-                  <input type="number" value={montoSolicitado} onChange={(event) => setMontoSolicitado(event.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2" required />
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Monto solicitado</label>
+                  <input
+                    type="number"
+                    value={montoSolicitado}
+                    onChange={(event) => setMontoSolicitado(event.target.value)}
+                    className={inputClass}
+                    placeholder="Ingrese el monto"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Número de cuotas</label>
-                  <input type="number" value={numeroCuotas} onChange={(event) => setNumeroCuotas(event.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2" required />
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Número de cuotas</label>
+                  <input
+                    type="number"
+                    value={numeroCuotas}
+                    onChange={(event) => setNumeroCuotas(event.target.value)}
+                    className={inputClass}
+                    placeholder="Ingrese el número de cuotas"
+                    required
+                  />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium">Motivo</label>
-                  <input value={motivo} onChange={(event) => setMotivo(event.target.value)} className="w-full rounded-md border border-slate-300 px-3 py-2" required />
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Motivo</label>
+                  <input
+                    value={motivo}
+                    onChange={(event) => setMotivo(event.target.value)}
+                    className={inputClass}
+                    placeholder="Ingrese el motivo"
+                    required
+                  />
                 </div>
                 <button type="submit" disabled={submittingPrestamo} className="rounded-md bg-slate-900 px-4 py-2 text-white disabled:opacity-60">
                   {submittingPrestamo ? "Procesando..." : "Solicitar préstamo"}
@@ -341,7 +339,7 @@ export default function SocioPage() {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-semibold">Aportaciones</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Aportaciones</h2>
               {aportaciones.length === 0 ? (
                 <p className="mt-4 text-sm text-slate-500">No hay aportaciones registradas.</p>
               ) : (
@@ -349,7 +347,7 @@ export default function SocioPage() {
                   {aportaciones.map((item) => (
                     <li key={item.idAportacion ?? item.periodo} className="rounded-md border border-slate-100 p-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">S/ {Number(item.monto ?? 0).toFixed(2)}</span>
+                        <span className="font-medium text-slate-900">S/ {Number(item.monto ?? 0).toFixed(2)}</span>
                         <span className="text-sm text-slate-500">{item.periodo ?? "Sin periodo"}</span>
                       </div>
                       <p className="mt-1 text-sm text-slate-600">{item.observacion ?? "Sin observación"}</p>
@@ -362,7 +360,7 @@ export default function SocioPage() {
 
           <div className="space-y-6">
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-semibold">Préstamos</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Préstamos</h2>
               {prestamos.length === 0 ? (
                 <p className="mt-4 text-sm text-slate-500">No hay préstamos registrados.</p>
               ) : (
@@ -370,13 +368,13 @@ export default function SocioPage() {
                   {prestamos.map((prestamo) => (
                     <li key={prestamo.idPrestamo} className="rounded-md border border-slate-100 p-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">Préstamo #{prestamo.idPrestamo}</span>
+                        <span className="font-medium text-slate-900">Préstamo #{prestamo.idPrestamo}</span>
                         <span className="text-sm text-slate-500">{prestamo.estado ?? "ACTIVO"}</span>
                       </div>
-                      <p className="mt-1 text-sm">Monto: S/ {Number(prestamo.monto ?? 0).toFixed(2)}</p>
-                      <p className="text-sm">Saldo pendiente: S/ {Number(prestamo.saldoPendiente ?? 0).toFixed(2)}</p>
-                      {prestamo.motivo ? <p className="text-sm">Motivo: {prestamo.motivo}</p> : null}
-                      <button onClick={() => handleVerCuotas(Number(prestamo.idPrestamo))} className="mt-3 rounded-md border border-slate-300 px-3 py-2 text-sm">
+                      <p className="mt-1 text-sm text-slate-700">Monto: S/ {Number(prestamo.monto ?? 0).toFixed(2)}</p>
+                      <p className="text-sm text-slate-700">Saldo pendiente: S/ {Number(prestamo.saldoPendiente ?? 0).toFixed(2)}</p>
+                      {prestamo.motivo ? <p className="text-sm text-slate-700">Motivo: {prestamo.motivo}</p> : null}
+                      <button onClick={() => handleVerCuotas(Number(prestamo.idPrestamo))} className="mt-3 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800">
                         Ver cuotas
                       </button>
                     </li>
@@ -386,7 +384,7 @@ export default function SocioPage() {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 className="text-lg font-semibold">Cuotas del préstamo</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Cuotas del préstamo</h2>
               <p className="mt-2 text-sm text-slate-600">Seleccione un préstamo para consultar sus cuotas.</p>
               {cuotas.length === 0 ? (
                 <p className="mt-4 text-sm text-slate-500">Aún no hay cuotas cargadas.</p>
@@ -395,13 +393,13 @@ export default function SocioPage() {
                   {cuotas.map((cuota) => (
                     <li key={cuota.idCuota} className="rounded-md border border-slate-100 p-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium">Cuota #{cuota.numeroCuota ?? cuota.idCuota}</span>
+                        <span className="font-medium text-slate-900">Cuota #{cuota.numeroCuota ?? cuota.idCuota}</span>
                         <span className="text-sm text-slate-500">{cuota.estado ?? "PENDIENTE"}</span>
                       </div>
-                      <p className="mt-1 text-sm">Capital programado: S/ {Number(cuota.capitalProgramado ?? 0).toFixed(2)}</p>
-                      <p className="text-sm">Interés programado: S/ {Number(cuota.interesProgramado ?? 0).toFixed(2)}</p>
-                      <p className="text-sm">Monto total: S/ {Number(cuota.montoCuota ?? 0).toFixed(2)}</p>
-                      <p className="text-sm">Fecha de vencimiento: {cuota.fechaVencimiento ?? "Sin fecha"}</p>
+                      <p className="mt-1 text-sm text-slate-700">Capital programado: S/ {Number(cuota.capitalProgramado ?? 0).toFixed(2)}</p>
+                      <p className="text-sm text-slate-700">Interés programado: S/ {Number(cuota.interesProgramado ?? 0).toFixed(2)}</p>
+                      <p className="text-sm text-slate-700">Monto total: S/ {Number(cuota.montoCuota ?? 0).toFixed(2)}</p>
+                      <p className="text-sm text-slate-700">Fecha de vencimiento: {cuota.fechaVencimiento ?? "Sin fecha"}</p>
                       <button
                         onClick={() => handlePagarCuota(cuota.idCuota)}
                         disabled={Boolean(submittingPago || (cuota.estado && cuota.estado !== "PENDIENTE"))}
@@ -416,8 +414,6 @@ export default function SocioPage() {
             </div>
           </div>
         </section>
-
-        {/* TODO: mejorar el diseño visual según el prototipo de alta resolución. */}
       </div>
     </main>
   );

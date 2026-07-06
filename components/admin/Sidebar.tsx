@@ -3,12 +3,26 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import {
+  Banknote,
+  Bell,
+  CreditCard,
+  FileText,
+  Home,
+  LogOut,
+  Settings,
+  UserPlus,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 
 type SidebarItem = {
   label: string;
   href?: string;
   section?: string;
   disabled?: boolean;
+  icon: LucideIcon;
 };
 
 interface SidebarProps {
@@ -20,61 +34,88 @@ interface SidebarProps {
 }
 
 const items: SidebarItem[] = [
-  { label: "Inicio", href: "/admin?view=socios", section: "socios" },
-  { label: "Socios", href: "/admin?view=socios", section: "socios" },
-  { label: "Usuarios", href: "/admin?view=usuarios", section: "usuarios" },
-  { label: "Préstamos", href: "/admin?view=prestamos", section: "prestamos" },
-  { label: "Aportaciones", href: "/admin?view=aportaciones", section: "aportaciones" },
-  { label: "Pagos de cuotas", href: "/admin?view=pagos", section: "pagos" },
-  { label: "Historial financiero", href: "/admin?view=historial", section: "historial" },
-  { label: "Configuración", href: "/admin?view=configuracion", section: "configuracion" },
-  { label: "Reportes", disabled: true },
-  { label: "Notificaciones", disabled: true },
+  { label: "Inicio", href: "/admin?view=socios", section: "socios", icon: Home },
+  { label: "Socios", href: "/admin?view=socios", section: "socios", icon: Users },
+  { label: "Usuarios", href: "/admin?view=usuarios", section: "usuarios", icon: UserPlus },
+  { label: "Préstamos", href: "/admin?view=prestamos", section: "prestamos", icon: Banknote },
+  { label: "Aportaciones", href: "/admin?view=aportaciones", section: "aportaciones", icon: Wallet },
+  { label: "Pagos de cuotas", href: "/admin?view=pagos", section: "pagos", icon: CreditCard },
+  { label: "Historial financiero", href: "/admin?view=historial", section: "historial", icon: FileText },
+  { label: "Configuración", href: "/admin?view=configuracion", section: "configuracion", icon: Settings },
+  { label: "Reportes", disabled: true, icon: FileText },
+  { label: "Notificaciones", disabled: true, icon: Bell },
 ];
+
+function getInitials(name: string) {
+  const compact = name.trim();
+  if (!compact) {
+    return "CF";
+  }
+
+  const parts = compact.split(/\s+/).slice(0, 2);
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+}
 
 export function Sidebar({ brandName, logoUrl, colorPrincipal, colorSecundario, onLogout }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentSection = searchParams.get("view") ?? "socios";
   const { nombreCooperativa } = useAuth();
+  const brandLabel = nombreCooperativa || brandName;
+  const initials = getInitials(brandLabel);
 
   return (
-    <aside className="flex w-full flex-col justify-between rounded-3xl border border-slate-200 bg-slate-950 p-5 text-slate-100 shadow-xl lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:w-72 lg:min-w-72 lg:self-start">
+    <aside
+      className="mb-4 flex w-full flex-col justify-between rounded-3xl border border-slate-900/10 p-5 text-slate-100 shadow-xl lg:fixed lg:bottom-6 lg:left-6 lg:top-6 lg:mb-0 lg:w-80"
+      style={{ background: `linear-gradient(180deg, ${colorPrincipal}, ${colorSecundario})` }}
+    >
       <div>
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-white/10">
-            {logoUrl ? <img src={logoUrl} alt={brandName} className="h-full w-full object-cover" /> : <span className="text-lg font-semibold">C</span>}
+        <div className="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 p-3">
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-white/15">
+            {logoUrl ? (
+              <img src={logoUrl} alt={brandLabel} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-lg font-semibold tracking-wide">{initials}</span>
+            )}
           </div>
           <div>
-            <p className="text-sm text-slate-400">COOPFIN</p>
-            <h2 className="text-base font-semibold">{nombreCooperativa || brandName}</h2>
+            <p className="text-xs uppercase tracking-[0.18em] text-white/80">COOPFIN</p>
+            <h2 className="text-base font-semibold leading-tight">{brandLabel}</h2>
+            <p className="mt-1 text-xs text-white/80">Cooperativa de Ahorro</p>
           </div>
         </div>
 
-        <nav className="mt-8 space-y-1">
+        <nav className="mt-6 space-y-1.5">
           {items.map((item) => {
+            const Icon = item.icon;
             const isActive = !item.disabled && currentSection === item.section && pathname === "/admin";
             const buttonClass = `flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-sm transition ${
               item.disabled
-                ? "cursor-not-allowed text-slate-500"
+                ? "cursor-not-allowed text-white/50"
                 : isActive
-                  ? "bg-white/10 text-white"
-                  : "text-slate-300 hover:bg-white/10 hover:text-white"
+                  ? "bg-white/20 text-white"
+                  : "text-white/90 hover:bg-white/15 hover:text-white"
             }`;
 
             if (item.disabled) {
               return (
                 <div key={item.label} className={buttonClass}>
-                  <span>{item.label}</span>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Próx</span>
+                  <span className="flex items-center gap-2">
+                    <Icon size={17} />
+                    {item.label}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/60">Próx</span>
                 </div>
               );
             }
 
             return (
               <Link key={item.label} href={item.href ?? "/admin"} className={buttonClass}>
-                <span>{item.label}</span>
-                {isActive ? <span className="h-2.5 w-2.5 rounded-full bg-white" /> : null}
+                <span className="flex items-center gap-2">
+                  <Icon size={17} />
+                  {item.label}
+                </span>
+                {isActive ? <span className="h-2.5 w-2.5 rounded-full bg-white" /> : <span className="h-2.5 w-2.5 rounded-full bg-white/20" />}
               </Link>
             );
           })}
@@ -83,9 +124,9 @@ export function Sidebar({ brandName, logoUrl, colorPrincipal, colorSecundario, o
 
       <button
         onClick={onLogout}
-        className="mt-8 flex items-center justify-center rounded-2xl border border-white/10 px-3 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-white/10"
-        style={{ backgroundColor: `${colorPrincipal}20`, color: "#f8fafc" }}
+        className="mt-8 flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-3 py-2.5 text-sm font-semibold text-slate-50 transition hover:bg-white/20"
       >
+        <LogOut size={17} />
         Cerrar sesión
       </button>
     </aside>

@@ -6,9 +6,7 @@ export const configuracionCooperativaService = {
     const { data } = await api.get<ConfiguracionCooperativa>(`/configuraciones-cooperativa/${id}`);
     return data;
   },
-  // Preferir endpoint por cooperativa
   getByCooperativa: async (idCooperativa: number): Promise<ConfiguracionCooperativa> => {
-    // GET /configuraciones-cooperativa/cooperativa/{idCooperativa}
     const { data } = await api.get<ConfiguracionCooperativa>(`/configuraciones-cooperativa/cooperativa/${idCooperativa}`);
     return data;
   },
