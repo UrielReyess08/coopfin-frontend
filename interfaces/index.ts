@@ -1,3 +1,16 @@
+export interface Cooperativa {
+  idCooperativa?: number;
+  nombre?: string;
+  ruc?: string;
+  direccion?: string;
+  telefono?: string;
+  email?: string;
+  logoUrl?: string;
+  colorPrincipal?: string;
+  colorSecundario?: string;
+  estado?: string;
+}
+
 export interface AuthRequest {
   username: string;
   password: string;
@@ -10,17 +23,24 @@ export interface AuthResponse {
   rol?: string;
   idCooperativa?: number;
   idSocio?: number;
+  nombreCooperativa?: string | null;
   message?: string;
 }
 
 export interface Socio {
   idSocio?: number;
+  codigoSocio?: string;
+  dni?: string;
+  nombres?: string;
+  apellidos?: string;
+  telefono?: string;
+  direccion?: string;
+  idUsuario?: number;
+  idCooperativa?: number;
   nombre?: string;
   apellido?: string;
   correo?: string;
-  telefono?: string;
   estado?: string;
-  idCooperativa?: number;
 }
 
 export interface Aportacion {
@@ -40,12 +60,17 @@ export interface Prestamo {
   estado?: string;
   fechaSolicitud?: string;
   idSocio?: number;
+  motivo?: string;
+  montoSolicitado?: number;
+  numeroCuotas?: number;
 }
 
 export interface CuotaPrestamo {
   idCuota?: number;
   numeroCuota?: number;
   montoCuota?: number;
+  capitalProgramado?: number;
+  interesProgramado?: number;
   capitalPagado?: number;
   interesPagado?: number;
   moraPagada?: number;
@@ -71,4 +96,33 @@ export interface HistorialFinanciero {
   saldoPendiente?: number;
   aportaciones?: Aportacion[];
   prestamos?: Prestamo[];
+  socio?: {
+    idSocio?: number;
+    codigoSocio?: string;
+    nombres?: string;
+    apellidos?: string;
+  };
+}
+
+export interface Usuario {
+  idUsuario?: number;
+  username?: string;
+  password?: string;
+  email?: string;
+  idRol?: number;
+  idCooperativa?: number;
+  estado?: string;
+}
+
+export interface ConfiguracionCooperativa {
+  idConfiguracion?: number;
+  tasaInteresDefault?: number;
+  moneda?: string;
+  montoMaximoPrestamo?: number;
+  numeroMaximoCuotas?: number;
+  diasGracia?: number;
+  montoMinimoAportacion?: number;
+  montoMaximoAportacion?: number;
+  diaPagoAportacion?: number;
+  idCooperativa?: number;
 }

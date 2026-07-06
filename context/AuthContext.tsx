@@ -9,6 +9,7 @@ interface AuthContextValue {
   token: string | null;
   rol: string | null;
   idCooperativa: number | null;
+  nombreCooperativa: string | null;
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<AuthResponse>;
   logout: () => void;
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [rol, setRol] = useState<string | null>(null);
   const [idCooperativa, setIdCooperativa] = useState<number | null>(null);
+  const [nombreCooperativa, setNombreCooperativa] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = getStoredAuthState();
@@ -49,27 +51,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(stored.token ?? null);
     setRol(stored.rol ?? null);
     setIdCooperativa(stored.idCooperativa ?? null);
+    setNombreCooperativa(stored.nombreCooperativa ?? null);
   }, []);
 
   const login = async (username: string, password: string): Promise<AuthResponse> => {
     const data = await authService.login({ username, password });
-    const nextUser = {
-      ...data,
-      username: data.username ?? username,
-    };
-
-    setUser(nextUser);
-    setToken(nextUser.token ?? null);
-    setRol(nextUser.rol ?? null);
-    setIdCooperativa(nextUser.idCooperativa ?? null);
-
+    // limpiar posibles datos previos relacionados a cooperativas o mocks
     if (typeof window !== "undefined") {
-      window.localStorage.setItem("coopfin_auth_state", JSON.stringify(nextUser));
-      if (nextUser.token) {
-        window.localStorage.setItem("auth_token", nextUser.token);
+      try {
+        window.localStorage.removeItem("cooperativa_draft");
+        window.localStorage.removeItem("selectedCooperativa");
+        window.localStorage.removeItem("register_cooperativa");
+        window.localStorage.removeItem("coopfin_demo_data");
+      } catch (e) {
+        // ignore
       }
     }
-    return nextUser
+
+    const storedAuth = {
+      token: data.token ?? null,
+      username: data.username ?? username,
+      rol: data.rol ?? null,
+      idCooperativa: data.idCooperativa ?? null,
+      nombreCooperativa: data.nombreCooperativa ?? null,
+    } as AuthResponse;
+
+    // guardar únicamente el estado de autenticación mínimo
+    setUser(storedAuth);
+    setToken(storedAuth.token ?? null);
+    setRol(storedAuth.rol ?? null);
+    setIdCooperativa(storedAuth.idCooperativa ?? null);
+    setNombreCooperativa(storedAuth.nombreCooperativa ?? null);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("coopfin_auth_state", JSON.stringify(storedAuth));
+    }
+
+    return storedAuth;
   };
 
   const logout = () => {
@@ -77,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setRol(null);
     setIdCooperativa(null);
+    setNombreCooperativa(null);
 
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("coopfin_auth_state");
@@ -90,11 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       rol,
       idCooperativa,
+      nombreCooperativa,
       isAuthenticated: Boolean(token),
       login,
       logout,
     }),
-    [user, token, rol, idCooperativa]
+    [user, token, rol, idCooperativa, nombreCooperativa]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
